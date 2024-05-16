@@ -150,3 +150,4 @@ FreqStats::Heatness FreqStats::Heatness::operator+(const FreqStats::Heatness &b)
     h.last_heat = heat(h.last_time).last_heat + b.heat(h.last_time).last_heat;
     return h;
 }
+

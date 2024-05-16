@@ -268,6 +268,15 @@ void allocPage(DaemonContext& daemon_context, DaemonToClientConnection& client_c
     resp_handle.Init();
     auto& reply = resp_handle.Get();
     reply.start_page_id = start_page_id;
+    
+    // alloc进入eq
+    rcmp::GAddr u = GetGAddr(start_page_id, 0);
+    heat_prediction::eq_item item;
+    for(int i=0;i<req.count;i++){
+        item["page_id"] = u.page_id;
+        item[""]
+    }
+
 }
 
 void freePage(DaemonContext& daemon_context, DaemonToClientConnection& client_connection,

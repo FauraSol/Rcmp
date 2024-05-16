@@ -84,6 +84,8 @@ echo "Start ..."
 
 port=$((14800+0))
 
+#--cxl_memory_size=$CXL_MEM_SZ --iteration=$IT --payload_size=$payload --addr_range=$ADDR_RANGE --thread=$THREAD --thread_all=1 --no_node=$NODES --node_id=$NID --redis_server_ip=192.168.201.52:6379"
+
 # reserve 2GB, data 8GB(include swap 100MB)
 CXL_MEM_SZ=$((10*1024*1024*1024))
 ADDR_RANGE=$(((8*1024-100)*1024*1024))
@@ -97,3 +99,6 @@ for payload in 64
 do
     test_run
 done
+
+
+#sudo numactl -N 0 /home/zsq/Rcmp/build/test/rw --client_ip=192.168.1.51 --client_port=14801 --rack_id=0 --cxl_devdax_path=/dev/shm/cxlsim0 --cxl_memory_size=4294967296 --iteration=10000 --payload_size=16 --addr_range=4294967296 --thread=8 --thread_all=1 --no_node=1 --node_id=0 --redis_server_ip=192.168.200.52:6379

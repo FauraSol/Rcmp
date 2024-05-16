@@ -6,9 +6,9 @@
 #include "impl.hpp"
 #include "lock.hpp"
 #include "proto/rpc_register.hpp"
+#include "ml_util.hpp"
 
 using namespace std::chrono_literals;
-
 namespace rcmp {
 
 PoolContext::PoolContext(ClientOptions options) {
@@ -37,6 +37,14 @@ PoolContext *Open(ClientOptions options) {
 void Close(PoolContext *pool_ctx) { delete pool_ctx; }
 
 Status PoolContext::Read(GAddr gaddr, size_t size, void *buf) {
+    void* return_address = __builtin_return_address(0);
+    Dl_info info;
+    if (dladdr(return_address, &info)) {
+        printf("Function name: %s\n", info.dli_sname);
+        printf("Offset in symbol table: 0x%lx name:%s\n", (unsigned long)info.dli_saddr,info.dli_sname);
+    } else {
+        printf("Failed to get symbol information.\n");
+    }
     uint64_t perf_stat_timer, perf_stat_timer_;
     m_impl->m_stats.start_sample(perf_stat_timer);
     perf_stat_timer_ = perf_stat_timer;
@@ -60,6 +68,7 @@ Status PoolContext::Read(GAddr gaddr, size_t size, void *buf) {
 
     m_impl->m_stats.page_cache_search_sample(perf_stat_timer);
 
+    //client cache miss, read from daemon
     if (page_cache == nullptr) {
         m_impl->m_stats.local_page_miss_sample();
 
@@ -82,6 +91,7 @@ Status PoolContext::Read(GAddr gaddr, size_t size, void *buf) {
 
         auto &resp = fu.get();
 
+        //daemon miss(remote fetch or swap)，算初入?
         if (!resp.refs) {
             m_impl->m_stats.page_cache_fault_sample(perf_stat_timer);
             memcpy(buf, resp.read_data, size);
@@ -116,6 +126,7 @@ Status PoolContext::Read(GAddr gaddr, size_t size, void *buf) {
 }
 
 Status PoolContext::Write(GAddr gaddr, size_t size, const void *buf) {
+    //TODO Write hit
     uint64_t perf_stat_timer, perf_stat_timer_;
     m_impl->m_stats.start_sample(perf_stat_timer);
     perf_stat_timer_ = perf_stat_timer;
@@ -297,6 +308,8 @@ GAddr PoolContext::AllocPage(size_t count) {
     auto &resp = fu.get();
 
     GAddr gaddr = GetGAddr(resp.start_page_id, 0);
+
+    //TODO:gaddr进入eq,可以认为是初次访问
 
     return gaddr;
 }

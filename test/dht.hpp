@@ -1,8 +1,10 @@
 #pragma once
 
+#include <thread>
 #include <unordered_set>
 #include <vector>
 
+#include "../src/include/config.hpp"
 #include "rcmp.hpp"
 
 using namespace std;
@@ -17,7 +19,7 @@ struct HashTableRep {
 
     static constexpr size_t bkt_per_seg_num = 7;
     static constexpr size_t seg_num_second_level = 43;
-    static constexpr size_t seg_num = 2700001;
+    static constexpr size_t seg_num = 390001;
     static constexpr size_t max_bkt_num = bkt_per_seg_num * seg_num_second_level * seg_num;
     static constexpr int RETRY_CNT = 3;
 
@@ -43,20 +45,36 @@ struct HashTableRep {
 
     void init() {
         bool f = false;
-        st = pool->AllocPage(div_ceil(sizeof(segment_table), 2ul << 20));
+        st = pool->AllocPage(div_ceil(sizeof(segment_table), page_size));
 
-        pool->Write(st + sizeof(segment_table) - 10, sizeof(f), &f);
-
-        for (size_t i = 0; i < seg_num; ++i) {
-            for (size_t j = 0; j < seg_num_second_level; ++j) {
-                for (size_t k = 0; k < bkt_per_seg_num; ++k) {
-                    pool->Write(
-                        st + (rcmp::GAddr) &
-                            (((segment_table *)0)->seg2[i].seg[j].buckets[k].valid),
-                        sizeof(f), &f);
+        auto init_run = [&](const size_t &s, const size_t &e) {
+            for (size_t i = s; i < e; ++i) {
+                for (size_t j = 0; j < seg_num_second_level; ++j) {
+                    for (size_t k = 0; k < bkt_per_seg_num; ++k) {
+                        pool->Write(st + (rcmp::GAddr) &
+                                        (((segment_table *)0)->seg2[i].seg[j].buckets[k].valid),
+                                    sizeof(f), &f);
+                    }
                 }
             }
-        }
+        };
+
+        std::thread t1(init_run, 0, seg_num / 4 * 2);
+        std::thread t2(init_run, seg_num / 4 * 2, seg_num);
+
+        t1.join();
+        t2.join();
+
+        // for (size_t i = 0; i < seg_num; ++i) {
+        //     for (size_t j = 0; j < seg_num_second_level; ++j) {
+        //         for (size_t k = 0; k < bkt_per_seg_num; ++k) {
+        //             pool->Write(
+        //                 st + (rcmp::GAddr) &
+        //                     (((segment_table *)0)->seg2[i].seg[j].buckets[k].valid),
+        //                 sizeof(f), &f);
+        //         }
+        //     }
+        // }
 
         printf("create hashtable success. gaddr: %lu\n", st);
     }
@@ -64,27 +82,27 @@ struct HashTableRep {
     void put(int key, int val) {
         auto fn = [&](size_t sh, rcmp::GAddr &entry_addr, entry &res) {
             segment seg;
-            pool->Read(st + (rcmp::GAddr) & (((segment_table *)0)
-                                                  ->seg2[sh % seg_num]
-                                                  .seg[sh % seg_num_second_level]),
-                       sizeof(seg), &seg);
+            pool->Read(
+                st + (rcmp::GAddr) &
+                    (((segment_table *)0)->seg2[sh % seg_num].seg[sh % seg_num_second_level]),
+                sizeof(seg), &seg);
 
             size_t i = sh % bkt_per_seg_num;
             do {
                 if (seg.buckets[i].valid && seg.buckets[i].key == key) {
                     res = seg.buckets[i];
                     entry_addr = st + (rcmp::GAddr) & (((segment_table *)0)
-                                                            ->seg2[sh % seg_num]
-                                                            .seg[sh % seg_num_second_level]
-                                                            .buckets[i]);
+                                                           ->seg2[sh % seg_num]
+                                                           .seg[sh % seg_num_second_level]
+                                                           .buckets[i]);
                     res.val = val;
                     return true;
                 } else if (!seg.buckets[i].valid) {
                     res = seg.buckets[i];
                     entry_addr = st + (rcmp::GAddr) & (((segment_table *)0)
-                                                            ->seg2[sh % seg_num]
-                                                            .seg[sh % seg_num_second_level]
-                                                            .buckets[i]);
+                                                           ->seg2[sh % seg_num]
+                                                           .seg[sh % seg_num_second_level]
+                                                           .buckets[i]);
                     res.valid = true;
                     res.key = key;
                     res.val = val;
@@ -130,10 +148,10 @@ struct HashTableRep {
 
         auto fn = [&](size_t sh) {
             segment seg;
-            pool->Read(st + (rcmp::GAddr) & (((segment_table *)0)
-                                                  ->seg2[sh % seg_num]
-                                                  .seg[sh % seg_num_second_level]),
-                       sizeof(seg), &seg);
+            pool->Read(
+                st + (rcmp::GAddr) &
+                    (((segment_table *)0)->seg2[sh % seg_num].seg[sh % seg_num_second_level]),
+                sizeof(seg), &seg);
 
             size_t i = sh % bkt_per_seg_num;
             do {

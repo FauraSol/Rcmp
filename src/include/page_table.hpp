@@ -10,6 +10,7 @@
 #include "lock.hpp"
 #include "robin_hood.h"
 #include "stats.hpp"
+#include "evaluation_queue.hpp"
 
 struct MasterToDaemonConnection;
 struct MasterToClientConnection;

@@ -11,6 +11,8 @@
 
 namespace rpc_daemon {
 
+
+
 struct JoinRackRequest {
     mac_id_t mac_id;  // unused
     IPv4String client_ipv4;

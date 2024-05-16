@@ -325,6 +325,7 @@ struct DaemonContext : public NOCOPYABLE {
     } m_erpc_ctx;
 
     SysStatistics m_stats;
+    heat_prediction::Evaluation_Queue<page_id_t, heat_prediction::eq_item> m_eval_queue;
 
     static DaemonContext &getInstance() {
         static DaemonContext daemon_ctx;
